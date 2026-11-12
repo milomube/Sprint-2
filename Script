@@ -1,0 +1,382 @@
+-- Código del SPRINT #2 - Data Analytics
+-- Elaborado por: Juan Camilo Murillo Beltrán
+
+-- NIVEL 1 (En la parte1 esta todo lo que corresponde a la creación de la base de datos del primer ejercicio)
+-- Ejercicio 1: A partir de los documentos adjuntos (estructura_datos y datos_introducir), importa las dos tablas. Muestra las principales características del esquema creado y explica las diferentes tablas y variables que existen. Asegúrate de incluir un diagrama que ilustre la relación entre las distintas tablas y variables.
+USE transactions;
+SHOW TABLES;
+SELECT COUNT(*) AS total_empresas FROM company;
+SELECT COUNT(*) AS total_transacciones FROM transaction;
+SHOW COLUMNS FROM company;
+SHOW COLUMNS FROM transaction;
+
+-- Ejercicio 2: Utilizando JOIN realizarás las siguientes consultas:
+
+-- 2.1. Listado de los países que están generando ventas.
+SELECT country AS paises_exportadores
+FROM company
+JOIN transaction ON company.id = transaction.company_id
+WHERE transaction.declined = "0"
+GROUP BY country
+ORDER BY country;
+
+-- 2.2. Desde cuántos países se generan las ventas.
+SELECT COUNT(DISTINCT company.country) AS cant_paises_export
+FROM company
+JOIN transaction ON company.id = transaction.company_id
+WHERE transaction.declined = "0";
+
+-- 2.3. Identifica a la compañía con la mayor media de ventas.
+SELECT company_name AS compañia_top, ROUND(AVG(transaction.amount), 2) AS media_ventas
+FROM company
+JOIN transaction ON company.id = transaction.company_id
+WHERE transaction.declined = "0"
+GROUP BY company_name
+ORDER BY media_ventas DESC
+LIMIT 1;
+
+-- Ejercicio #3: Utilizando sólo subconsultas (sin utilizar JOIN):
+
+-- 3.1. Muestra todas las transacciones realizadas por empresas de Alemania.
+SELECT *
+FROM transaction
+WHERE company_id IN (
+		SELECT id
+		FROM company
+        WHERE country = "Germany");
+        
+-- 3.2. Lista las empresas que han realizado transacciones por un amount superior a la media de todas las transacciones.
+SELECT company_name AS supera_media_amount
+FROM company
+WHERE id IN ( 
+		SELECT company_id
+        FROM transaction
+        WHERE amount > (
+			SELECT AVG(amount)
+            FROM transaction));
+            
+-- 3.3. Eliminarán del sistema las empresas que carecen de transacciones registradas, entrega el listado de estas empresas.
+SELECT company_name
+FROM company
+WHERE id IN	(
+		SELECT company_id
+		FROM transaction
+		WHERE declined = 1 AND company_id NOT IN (
+			SELECT company_id
+			FROM transaction
+			WHERE declined = 0)
+		GROUP BY company_id);
+
+-- Ejercicio #4: Tu tarea es diseñar y crear una tabla llamada "credit_card" que almacene detalles cruciales sobre las tarjetas de crédito. La nueva tabla debe ser capaz de identificar de forma única cada tarjeta y establecer una relación adecuada con las otras dos tablas ("transaction" y "company"). Después de crear la tabla será necesario que ingreses la información del documento denominado "datos_introducir_credit". Recuerda mostrar el diagrama y realizar una breve descripción del mismo.
+CREATE TABLE IF NOT EXISTS credit_card (
+    id VARCHAR(15) PRIMARY KEY,
+    iban VARCHAR(35),
+    pan VARCHAR(25),
+    pin VARCHAR(4),
+    cvv VARCHAR(3),
+    expiring_date VARCHAR(8)
+); 
+
+SELECT COUNT(*) AS transacciones_sin_tarjeta
+FROM transaction t
+LEFT JOIN credit_card cc ON t.credit_card_id = cc.id
+WHERE t.credit_card_id IS NOT NULL AND cc.id IS NULL;
+
+ALTER TABLE transaction
+ADD CONSTRAINT fk_transaction_credit_card
+FOREIGN KEY (credit_card_id)
+REFERENCES credit_card(id);
+
+SHOW COLUMNS FROM credit_card;
+SELECT *
+FROM credit_card; #La tabla credit_card tiene PK de nombre id y la tabla transactions tiene como FK esta misma en la columna credit_card_id
+
+-- Ejercicio 5: El departamento de Recursos Humanos ha identificado un error en el número de cuenta asociado a su tarjeta de crédito con ID CcU-2938. La información que debe mostrarse para este registro es: TR323456312213576817699999. Recuerda mostrar que el cambio se realizó.
+
+SELECT *
+FROM credit_card
+WHERE id = "Ccu-2938"; -- ejecutamos para verificar como aparece antes del cambio
+
+UPDATE credit_card
+SET iban = "TR323456312213576817699999"
+WHERE id = "Ccu-2938";
+
+SELECT *
+FROM credit_card
+WHERE id = "Ccu-2938"; -- ejecutamos para verificar si se hizo el cambio
+
+-- Ejercicio 6: En la tabla "transaction" ingresa una nueva transacción 
+INSERT INTO company (id)
+VALUES ('b-9999');
+
+INSERT INTO credit_card (id)
+VALUES ('CcU-9999');
+
+INSERT INTO transaction (id, credit_card_id, company_id, user_id, lat, longitude, timestamp, amount, declined)
+VALUES ("108B1D1D-5B23-A76C-55EF-C568E49A99DD", "CcU-9999", "b-9999", 9999, 829.999, -117.999, NOW(), 111.11, 0);
+
+SELECT *
+FROM transaction
+WHERE id = "108B1D1D-5B23-A76C-55EF-C568E49A99DD";
+
+-- Ejercicio 7: Desde recursos humanos te solicitan eliminar la columna "pan" de la tabla credit_card. Recuerda mostrar el cambio realizado.
+SELECT * FROM credit_card;
+
+ALTER TABLE credit_card
+DROP COLUMN pan; 
+
+SELECT * FROM credit_card;
+
+-- Ejercicio 8: Estudia y diseña una base de datos con un esquema de estrella que contenga, al menos 4 tablas
+
+CREATE DATABASE IF NOT EXISTS sprint2_ex8;
+USE sprint2_ex8;
+SET SESSION lc_time_names = 'en_US';
+CREATE TABLE companies_8 (company_id VARCHAR(20) PRIMARY KEY,
+    company_name VARCHAR(255),
+    phone VARCHAR(50),
+    email VARCHAR(255),
+    country VARCHAR(100),
+    website VARCHAR(255),
+    merchant_category VARCHAR(100),
+    merchant_price_position VARCHAR(50));
+    
+SHOW COLUMNS FROM companies_8;
+SET GLOBAL local_infile = 1;
+SHOW VARIABLES LIKE "local_infile";
+
+LOAD DATA LOCAL INFILE"C:/SQL/N1-Ex.8__companies.csv"
+INTO TABLE companies_8
+FIELDS TERMINATED BY ","
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES;
+
+SELECT * 
+FROM companies_8;
+
+CREATE TABLE users(
+id INT PRIMARY KEY,
+name VARCHAR(100),
+surname VARCHAR(100),
+phone VARCHAR(30),
+email VARCHAR(255),
+birth_date DATE,
+country VARCHAR(100),
+city VARCHAR(100),
+postal_code VARCHAR(20),
+address VARCHAR(255),
+signup_date DATE,
+user_segment VARCHAR(50),
+income_band VARCHAR(50));
+
+LOAD DATA LOCAL INFILE "C:/SQL/N1-Ex.8__american_users.csv"
+INTO TABLE users
+FIELDS TERMINATED BY ","
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES
+(id, name, surname, phone, email, @birth_date, country, city, postal_code, address, signup_date, user_segment, income_band)
+SET birth_date = STR_TO_DATE(@birth_date, '%b %e, %Y');
+
+LOAD DATA LOCAL INFILE "C:/SQL/N1-Ex.8__european_users.csv"
+INTO TABLE users
+FIELDS TERMINATED BY ","
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES
+(id, name, surname, phone, email, @birth_date, country, city, postal_code, address, signup_date, user_segment, income_band)
+SET birth_date = STR_TO_DATE(@birth_date, '%b %e, %Y');
+
+SELECT * FROM users;
+
+CREATE TABLE credit_cards(
+id VARCHAR(15) PRIMARY KEY,
+user_id INT,
+iban VARCHAR(34),
+pan VARCHAR(19),
+pin VARCHAR(4),
+cvv VARCHAR(13),
+track1 VARCHAR(100),
+track2 VARCHAR(100),
+expiring_date DATE,
+card_type VARCHAR(20),
+card_renewal_flag TINYINT(1));
+
+LOAD DATA LOCAL INFILE "C:/SQL/N1-Ex.8__credit_cards.csv"
+INTO TABLE credit_cards
+FIELDS TERMINATED BY ","
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES
+(id, user_id, iban, pan, pin, cvv, track1, track2, @expiring_date, card_type, card_renewal_flag)
+SET expiring_date = STR_TO_DATE(@expiring_date, '%m/%d/%y');
+
+SELECT * FROM credit_cards;
+
+CREATE TABLE transactions_8 (
+    id VARCHAR(36) PRIMARY KEY,
+    card_id VARCHAR(20),
+    business_id VARCHAR(20),
+    timestamp DATETIME,
+    amount DECIMAL(10,2),
+    declined TINYINT(1),
+    product_ids VARCHAR(50),
+    user_id INT,
+    lat DOUBLE,
+    longitude DOUBLE,
+    discount_amount DECIMAL(10,2),
+    tax_amount DECIMAL(10,2),
+    shipping_amount DECIMAL(10,2),
+    channel VARCHAR(20),
+    campaign_id VARCHAR(50),
+    device_type VARCHAR(20),
+    is_international TINYINT(1),
+    decline_reason VARCHAR(100),
+    distance_km DECIMAL(10,2),
+
+CONSTRAINT fk_transactions_8_companies_8
+    FOREIGN KEY (business_id)
+    REFERENCES companies_8(company_id),
+
+CONSTRAINT fk_transactions_8_users
+    FOREIGN KEY (user_id)
+    REFERENCES users(id),
+    
+CONSTRAINT fk_transactions_8_credit_cards
+    FOREIGN KEY (card_id)
+    REFERENCES credit_cards(id)
+    );
+
+LOAD DATA LOCAL INFILE "C:/SQL/N1-Ex.8__transactions.csv"
+INTO TABLE transactions_8
+FIELDS TERMINATED BY ";"
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES
+(id, card_id, business_id, timestamp, amount, declined, product_ids, user_id, lat, longitude, discount_amount, tax_amount, shipping_amount, channel,
+    campaign_id, device_type, is_international, @decline_reason, distance_km)
+SET decline_reason = NULLIF(@decline_reason, '');
+
+SELECT * FROM transactions_8;
+
+-- Ejercicio 9: Realiza una subconsulta que muestre a todos los usuarios con más de 80 transacciones utilizando al menos 2 tablas.
+SELECT u.name, u.surname, COUNT(t.user_id) AS cant_trans
+FROM users u
+LEFT JOIN transactions_8 t ON u.id = t.user_id
+WHERE u.id IN (SELECT user_id
+FROM transactions_8
+GROUP BY user_id
+HAVING COUNT(*) > 80)
+GROUP BY u.id, u.name, u.surname;
+
+-- Ejercicio 10: Muestra la media de amount por IBAN de las tarjetas de crédito en la compañía Donec Ltd., utiliza por lo menos 2 tablas.
+SELECT cc.iban, ROUND(AVG(t2.amount), 2) AS media_amount
+FROM transactions_8 t2
+LEFT JOIN credit_cards cc ON cc.id = t2.card_id
+LEFT JOIN companies_8 c ON c.company_id = t2.business_id
+WHERE c.company_name = "Donec Ltd"
+GROUP BY cc.iban;
+
+-- NIVEL 2
+USE sprint2_ex8;
+-- Ejercicio 1: Identifica los cinco días que se generó la mayor cantidad de ingresos en la empresa por ventas. Muestra la fecha de cada transacción junto con el total de las ventas.
+SELECT DATE(timestamp) AS fecha, COUNT(*) AS cant_trans, ROUND(SUM(amount), 2) AS suma_ventas
+FROM transactions_8
+WHERE declined = 0
+GROUP BY DATE(timestamp)
+ORDER BY suma_ventas DESC
+LIMIT 5;
+
+-- Ejercicio 2: Presenta el nombre, teléfono, país, fecha y amount, de aquellas empresas que realizaron transacciones con un valor comprendido entre 350 y 400 euros y en alguna de estas fechas: 29 de abril de 2015, 20 de julio de 2018 y 13 de marzo de 2024. Ordena los resultados de mayor a menor cantidad.
+SELECT DATE(t.timestamp) AS date, c.company_name, c.phone, c.country, t.amount AS total_amount
+FROM companies_8 c
+INNER JOIN transactions_8 t ON t.business_id = c.company_id
+WHERE t.amount BETWEEN 350 AND 400 AND DATE(t.timestamp) IN ("2015-04-29", "2018-07-20", "2024-03-13")
+ORDER BY total_amount DESC;
+
+-- Ejercicio 3: Necesitamos optimizar la asignación de los recursos y dependerá de la capacidad operativa que se requiera, por lo que te piden la información sobre la cantidad de transacciones que realizan las empresas, pero el departamento de recursos humanos es exigente y quiere un listado de las empresas en las que especifiques si tienen igual o más de 400 transacciones o menos.
+SELECT c.company_name, COUNT(t.id) AS cant_trans, 
+CASE 
+WHEN COUNT(t.id) >= 400 THEN "400 o más"
+ELSE "menos de 400"
+END AS clasificacion
+FROM transactions_8 t
+LEFT JOIN companies_8 c ON c.company_id = t.business_id
+GROUP BY c.company_id, c.company_name;
+
+-- Ejercicio 4: Elimina de la tabla transacción el registro con ID 000447FE-B650-4DCF-85DE-C7ED0EE1CAAD de la base de datos.
+SELECT *
+FROM transactions_8
+WHERE id = "000447FE-B650-4DCF-85DE-C7ED0EE1CAAD";
+
+DELETE FROM transactions_8
+WHERE id = "000447FE-B650-4DCF-85DE-C7ED0EE1CAAD";
+
+SELECT *
+FROM transactions_8
+WHERE id = "000447FE-B650-4DCF-85DE-C7ED0EE1CAAD";
+
+-- Ejercicio 5: La sección de marketing desea tener acceso a información específica para realizar análisis y estrategias efectivas. Se ha solicitado crear una vista que proporcione detalles clave sobre las compañías y sus transacciones. Será necesaria que crees una vista llamada VistaMarketing que contenga la siguiente información: Nombre de la compañía. Teléfono de contacto. País de residencia. Media de compra realizado por cada compañía. Presenta la vista creada, ordenando los datos de mayor a menor promedio de compra.
+CREATE VIEW VistaMarketing AS
+SELECT c.company_name, c.phone, c.country, ROUND(AVG(t.amount), 2) AS media_compra
+FROM companies_8 c
+INNER JOIN transactions_8 t ON c.company_id = t.business_id
+GROUP BY c.company_id, c.company_name, c.phone, c.country
+ORDER BY media_compra DESC;
+
+SELECT * FROM vistamarketing;
+
+-- NIVEL 3 
+-- Ejercicio 1: Crea una nueva tabla que refleje el estado de las tarjetas de crédito basado en si las tres últimas transacciones han sido declinadas entonces es inactivo, si por lo menos una no es rechazada entonces es activo. Partiendo de esta tabla responde: ¿Cuántas tarjetas están activas?
+CREATE TABLE estado_tarjetas AS
+SELECT cc.id AS card_id, COUNT(t.id) AS transacciones_evaluadas, 
+	CASE
+    WHEN SUM(declined) = 3 THEN "Inactiva"
+    ELSE "Activa"
+END AS estado
+FROM credit_cards cc
+LEFT JOIN ( SELECT id, card_id, declined,
+			ROW_NUMBER() OVER (
+            PARTITION BY card_id
+            ORDER BY timestamp DESC, id DESC) AS numero
+			FROM transactions_8) t ON cc.id = t.card_id AND t.numero <= 3
+GROUP BY cc.id;
+
+SHOW COLUMNS FROM estado_tarjetas;
+
+SELECT COUNT(*) AS cant_tarj_activ
+FROM estado_tarjetas
+WHERE estado = "Activa";
+
+-- Ejercicio 2: Crea una tabla con la que podamos unir los datos del archivo de products.csv con la base de datos creada (ya que hasta ahora no podíamos hacerlo), teniendo en cuenta que desde transaction tienes product_ids. Genera la siguiente consulta: Necesitamos conocer el número de veces que se ha vendido cada producto.
+CREATE TABLE products(
+id INT PRIMARY KEY,
+product_name VARCHAR(50),
+price DECIMAL(10, 2),
+colour VARCHAR(50),
+weight DECIMAL(6,2),
+warehouse_id  VARCHAR(50),
+category VARCHAR(50),
+brand VARCHAR(50),
+cost DECIMAL(10, 2),
+launch_date DATE);
+
+LOAD DATA LOCAL INFILE "C:/SQL/N1-Ex.8__products.csv"
+INTO TABLE products
+FIELDS TERMINATED BY ","
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY "\n"
+IGNORE 1 LINES
+(id, product_name, @price, colour, weight, warehouse_id, category, brand, @cost, launch_date)
+SET price = REPLACE(@price, '$', ''), 
+	cost = REPLACE(@cost, '$', '');
+    
+SELECT * FROM products;
+
+SELECT p.id, p.product_name, COUNT(t.product_ids) AS numero_veces
+FROM products p
+LEFT JOIN transactions_8 t ON FIND_IN_SET(
+        CAST(p.id AS CHAR),
+        REPLACE(t.product_ids, " ", "")) > 0 AND t.declined = 0
+GROUP BY p.id, p.product_name;
