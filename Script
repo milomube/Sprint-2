@@ -56,17 +56,12 @@ WHERE id IN (
             FROM transaction));
             
 -- 3.3. Eliminarán del sistema las empresas que carecen de transacciones registradas, entrega el listado de estas empresas.
-SELECT company_name
+SELECT *
 FROM company
 WHERE id IN	(
 		SELECT company_id
-		FROM transaction
-		WHERE declined = 1 AND company_id NOT IN (
-			SELECT company_id
-			FROM transaction
-			WHERE declined = 0)
-		GROUP BY company_id);
-
+		FROM transaction);
+		
 -- Ejercicio #4: Tu tarea es diseñar y crear una tabla llamada "credit_card" que almacene detalles cruciales sobre las tarjetas de crédito. La nueva tabla debe ser capaz de identificar de forma única cada tarjeta y establecer una relación adecuada con las otras dos tablas ("transaction" y "company"). Después de crear la tabla será necesario que ingreses la información del documento denominado "datos_introducir_credit". Recuerda mostrar el diagrama y realizar una breve descripción del mismo.
 CREATE TABLE IF NOT EXISTS credit_card (
     id VARCHAR(15) PRIMARY KEY,
